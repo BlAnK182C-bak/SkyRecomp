@@ -248,8 +248,8 @@ dist:
 	cp Baloo2-SemiBold.ttf Baloo2-OFL.txt "$(DIST)/"  # (start screen font, OFL)
 	cp README.md LICENSE LICENSE-LASRecomp CHANGELOG.md "$(DIST)/"  # (licenses and source links: README "License")
 	[ ! -d build/helper/rando-gen ] || cp -R build/helper/rando-gen "$(DIST)/"  # (only with LAS-Randomizer)
-	PATH="$(CURDIR)/build/deps-win/bin:$$PATH" ldd $(WIN_B)/skyrecomp.exe | awk '(/ucrt64/ || /deps-win/) && !/vulkan-1/ {print $$3}' | sort -u | \
-	    xargs -I{} cp -u {} "$(DIST)/"
+	tools/win_dlls.sh $(WIN_B)/skyrecomp.exe build/deps-win/bin /ucrt64/bin | xargs -I{} cp -u {} "$(DIST)/"
+	ls "$(DIST)/SDL3.dll" "$(DIST)/avcodec-63.dll" "$(DIST)/libshaderc_shared.dll" >/dev/null  # (the DLLs it can't start without)
 	! ls "$(DIST)" | grep -iE 'x264|x265|xvid|postproc'  # (no GPL codec libraries in the release)
 	cd build/dist && if command -v zip >/dev/null; then zip -qr "Sky Recomp-$(VERSION)-windows.zip" "Sky Recomp"; \
 	    else /c/Windows/System32/tar.exe -a -cf "Sky Recomp-$(VERSION)-windows.zip" "Sky Recomp"; fi
