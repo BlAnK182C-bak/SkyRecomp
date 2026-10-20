@@ -41,6 +41,55 @@ jobs:
         run: |
           gh release upload ${RELEASE_TAG} build/dist/*.AppImage --clobber
 
+  # `make dist` in MSYS2 UCRT64: the exe against an LGPL FFmpeg (make deps-windows), with the generator (make gen-helper)
+  # and compiler (tools/fetch_zig.sh, slimmed) the start screen builds skygame.dll with from the player's game files.
+  # No game code inside (make dist checks).
+  build-windows:
+    name: Build Windows Release
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Keep LF line endings
+        shell: pwsh
+        run: git config --global core.autocrlf false  # (the bash tools break with CRLF)
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            make zip unzip curl
+            mingw-w64-ucrt-x86_64-clang mingw-w64-ucrt-x86_64-lld mingw-w64-ucrt-x86_64-binutils
+            mingw-w64-ucrt-x86_64-sdl3 mingw-w64-ucrt-x86_64-vulkan-devel mingw-w64-ucrt-x86_64-shaderc
+            mingw-w64-ucrt-x86_64-vulkan-memory-allocator mingw-w64-ucrt-x86_64-pkgconf mingw-w64-ucrt-x86_64-nasm
+
+      - name: Build Windows Release
+        run: |
+          sed -i "s/^#define LARECOMP_VERSION .*/#define LARECOMP_VERSION \"$RELEASE_TAG\"/" runtime/ui/launcher.mm
+          make deps-windows
+          make gen-helper RANDO_PY="$(cygpath -u "$pythonLocation")/python.exe"
+          tools/fetch_zig.sh
+          make -j"$(nproc)" dist
+
+      - name: Upload to GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload $env:RELEASE_TAG "build/dist/Sky Recomp-$env:RELEASE_TAG-windows.zip" --clobber
+
   build-macos:
     name: Build macOS Release
     runs-on: macos-14

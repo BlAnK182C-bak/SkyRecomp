@@ -233,7 +233,6 @@ deps-windows:
 	tools/build_deps_windows.sh
 dist:
 	@[ -f build/deps-win/lib/libavcodec.dll.a ] || { echo "make deps-windows first (LGPL FFmpeg)"; exit 1; }
-	@[ -d build/helper/rando-gen ] || { echo "make rando-helper first (the seed generator)"; exit 1; }
 	@[ -d build/helper/lasgen ] || { echo "make gen-helper first (the game code generator)"; exit 1; }
 	@[ -x build/zig/zig.exe ] || { echo "tools/fetch_zig.sh first (the compiler)"; exit 1; }
 	$(MAKE) B=$(WIN_B) DEPS=$(CURDIR)/build/deps-win RELEASE=1 $(WIN_B)/skyrecomp.exe
@@ -246,10 +245,9 @@ dist:
 	cp runtime/cpu.h runtime/simd.h runtime/simd_fp.h runtime/gamelib.h tools/gamelib_entry.c runtime/hle/hle_symbols.txt \
 	    "$(DIST)/gamelib-src/"
 	cp docs/icon/icon_1024.png "$(DIST)/icon.png"
-	cp third_party/fonts/Baloo2/Baloo2-SemiBold.ttf "$(DIST)/"  # (start screen font, OFL)
-	cp third_party/fonts/Baloo2/OFL.txt "$(DIST)/Baloo2-OFL.txt"
-	cp README.md LICENSE "$(DIST)/"  # (licenses and source links of the bundled components: README "License")
-	cp -R build/helper/rando-gen "$(DIST)/"
+	cp Baloo2-SemiBold.ttf Baloo2-OFL.txt "$(DIST)/"  # (start screen font, OFL)
+	cp README.md LICENSE LICENSE-LASRecomp CHANGELOG.md "$(DIST)/"  # (licenses and source links: README "License")
+	[ ! -d build/helper/rando-gen ] || cp -R build/helper/rando-gen "$(DIST)/"  # (only with LAS-Randomizer)
 	PATH="$(CURDIR)/build/deps-win/bin:$$PATH" ldd $(WIN_B)/skyrecomp.exe | awk '(/ucrt64/ || /deps-win/) && !/vulkan-1/ {print $$3}' | sort -u | \
 	    xargs -I{} cp -u {} "$(DIST)/"
 	! ls "$(DIST)" | grep -iE 'x264|x265|xvid|postproc'  # (no GPL codec libraries in the release)
@@ -283,15 +281,17 @@ rando-helper: build/rando-venv/.ok
 
 # The game code generator, the same way (tools/lasgen.spec): build/helper/lasgen/, shipped as lasgen/ next to the exe or
 # in Contents/Resources. The start screen's setup runs it on the player's own game files (runtime/gamebuild.c).
-gen-helper: build/rando-venv/.ok build/rando-venv/.gen-ok
+gen-helper: build/rando-venv/.gen-ok
 	$(if $(filter windows,$(PLATFORM)),USERPROFILE="$$(cygpath -w ~ 2>/dev/null || echo $$HOME)") \
 	$(RANDO_VPY) -m PyInstaller --noconfirm --clean --log-level WARN --distpath build/helper --workpath build/pyinstaller \
 	    tools/lasgen.spec
 	$(if $(filter windows,$(PLATFORM)),$(RANDO_VPY) tools/pe_no_cfg.py build/helper/lasgen/lasgen.exe)
 	@du -sh build/helper/lasgen
 
-build/rando-venv/.gen-ok: build/rando-venv/.ok
-	$(RANDO_VPY) -m pip install -q capstone==5.0.9 unicorn==2.1.4 lz4==4.4.5
+# (its own venv when there is none: the seed generator's needs third_party/LAS-Randomizer, not in this repo)
+build/rando-venv/.gen-ok:
+	[ -x $(RANDO_VPY) ] || $(RANDO_PY) -m venv build/rando-venv
+	$(RANDO_VPY) -m pip install -q pyinstaller==6.22.3 capstone==5.0.9 unicorn==2.1.4 lz4==4.4.5
 	touch $@
 
 build/rando-venv/.ok: third_party/LAS-Randomizer/requirements.txt
