@@ -35,11 +35,24 @@ jobs:
           sed -i "s/^#define LARECOMP_VERSION .*/#define LARECOMP_VERSION \"$RELEASE_TAG\"/" runtime/ui/launcher.mm
           tools/linux/appimage.sh x86_64
 
+      # the same files as a portable folder: the AppImage's AppDir (its libraries in usr/lib), run as ./skyrecomp
+      - name: Package Linux Archives
+        run: |
+          DIST_DIR="SkyRecomp-${RELEASE_TAG}-Linux"
+          cp -a build/linux/x86_64/AppDir "$DIST_DIR"
+          ln -s usr/bin/skyrecomp "$DIST_DIR/skyrecomp"
+          cp CHANGELOG.md "$DIST_DIR/"
+          mkdir -p "$DIST_DIR/extracted" "$DIST_DIR/mods"
+          echo "Place your vanilla game files (romfs.bin or romfs/ and exefs/) here." > "$DIST_DIR/extracted/INSTRUCTIONS.txt"
+          touch "$DIST_DIR/mods/.gitkeep"
+          tar -czf "$DIST_DIR.tar.gz" "$DIST_DIR"
+          zip -qry "$DIST_DIR.zip" "$DIST_DIR"
+
       - name: Upload to GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload ${RELEASE_TAG} build/dist/*.AppImage --clobber
+          gh release upload ${RELEASE_TAG} build/dist/*.AppImage SkyRecomp-${RELEASE_TAG}-Linux.tar.gz SkyRecomp-${RELEASE_TAG}-Linux.zip --clobber
 
   # `make dist` in MSYS2 UCRT64: the exe against an LGPL FFmpeg (make deps-windows), with the generator (make gen-helper)
   # and compiler (tools/fetch_zig.sh, slimmed) the start screen builds skygame.dll with from the player's game files.
@@ -88,7 +101,9 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload $env:RELEASE_TAG "build/dist/Sky Recomp-$env:RELEASE_TAG-windows.zip" --clobber
+        run: |
+          Copy-Item "build/dist/Sky Recomp-$env:RELEASE_TAG-windows.zip" "SkyRecomp-$env:RELEASE_TAG-Windows.zip"
+          gh release upload $env:RELEASE_TAG "SkyRecomp-$env:RELEASE_TAG-Windows.zip" --clobber
 
   build-macos:
     name: Build macOS Release
