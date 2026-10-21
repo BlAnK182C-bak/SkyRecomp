@@ -286,7 +286,8 @@ static float extract_progress(void) {
 static bool build_game_code(void) {
     if (gamelib_present(g_root.c_str())) return true;
     int cores = SDL_GetNumLogicalCPUCores(), ram_gb = SDL_GetSystemRAM() / 1024;
-    GameBuildOpts o = {build_progress, cores < ram_gb - 2 ? cores : ram_gb - 2 > 1 ? ram_gb - 2 : 1};
+    GameBuildOpts o = {build_progress, cores < ram_gb - 2 ? cores : ram_gb - 2 > 1 ? ram_gb - 2 : 1,
+                       g_settings.game_build == GAME_BUILD_OPTIMIZED};
     char why[256] = "";
     g_build_frac = 0;
     bool ok = gamebuild_run(g_root.c_str(), &o, why, sizeof why);
@@ -418,6 +419,33 @@ done:
     pthread_mutex_unlock(&g_lock);
     return NULL;
 }
+
+static void start_setup(void) {  // (Set up game files, Rebuild game code: the setup above, in the background)
+    pthread_mutex_lock(&g_lock);
+    g_busy = true;
+    pthread_mutex_unlock(&g_lock);
+    pthread_t t;
+    pthread_create(&t, NULL, extract_thread, NULL);
+    pthread_detach(t);
+}
+
+// The Set up page's choice of how the game code is built (GameBuildOpts.optimized), and Rebuild: only where this copy
+// can build it (a rebuild deletes the library first). Not on Windows: its release ships the library built, so
+// nothing is built there unless it's missing.
+static bool build_choice_shown(void) {
+#ifdef _WIN32
+    return false;
+#else
+    static int v = -1;  // (gamebuild_available looks for the generator and the compiler on disk: once)
+    if (v < 0) v = gamebuild_available();
+    return v;
+#endif
+}
+static const char *const BUILD_NAMES[] = {"Faster build", "Faster game"};
+static const char *const BUILD_DESC =
+    "How the game code is compiled from your game files.\n\nFaster build: the few giant functions that take most of "
+    "the time get less optimization, so the build finishes much sooner. The game may run slightly slower.\n\nFaster "
+    "game: everything fully optimized. The build takes much longer (over an hour on a laptop).";
 
 // ------------------------------------------------------------------ folder dialog (SDL calls back on any thread)
 static void SDLCALL picked(void *, const char *const *files, int) {
@@ -882,6 +910,24 @@ static void prelaunch_tab(float sc) {
             ImGui::IsKeyPressed(ImGuiKey_Escape, false))
             ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
+    }
+    if (build_choice_shown()) {  // (the choice applies to the next build: Rebuild makes one now)
+        ImGui::Spacing();
+        ImGui::Spacing();
+        heading("Game code");
+        ImGui::SetNextItemWidth(260 * sc);
+        if (ImGui::Combo("##gamebuild", &g_settings.game_build, BUILD_NAMES, 2)) settings_save();
+        ImGui::SameLine();
+        if (ImGui::Button("Rebuild game code")) {  // (deleted first: the start screen then builds it, as Set up does)
+            rt_remove_game_file(g_root.c_str(), GAMELIB_NAME);
+            rt_remove_game_file(g_root.c_str(), GAMELIB_NAME ".id");
+            g_files_deleted = true;
+            start_setup();
+        }
+        ImGui::PushTextWrapPos(0);
+        ImGui::TextDisabled("%s", BUILD_DESC);
+        ImGui::TextDisabled("Rebuild compiles it again from the copied game files, the way chosen here.");
+        ImGui::PopTextWrapPos();
     }
     ImGui::Spacing();
     ImGui::Spacing();
@@ -1387,15 +1433,13 @@ extern "C" void launcher_run(const char *root) {
                     first_row();
 
                     opt_section("Set up");
-                    if (busy || (src.empty() && !check_copied_files(g_root).empty())) opt_disable_next();
-                    if (opt_action("Set up game files", busy ? "Working..." : "", ex_d.c_str(), true)) {
-                        pthread_mutex_lock(&g_lock);
-                        g_busy = true;
-                        pthread_mutex_unlock(&g_lock);
-                        pthread_t t;
-                        pthread_create(&t, NULL, extract_thread, NULL);
-                        pthread_detach(t);
+                    if (build_choice_shown()) {
+                        if (busy) opt_disable_next();
+                        if (opt_choice("Game code", &g_settings.game_build, BUILD_NAMES, 2, GAME_BUILD_FAST, BUILD_DESC))
+                            settings_save();
                     }
+                    if (busy ||(src.empty() && !check_copied_files(g_root).empty())) opt_disable_next();
+                    if (opt_action("Set up game files", busy ? "Working..." : "", ex_d.c_str(), true)) start_setup();
                     files_gb = -1;  // (re-measured after a setup)
                 } else {
                     opt_section("Status");
