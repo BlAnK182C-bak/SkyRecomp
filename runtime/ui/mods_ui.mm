@@ -12,6 +12,7 @@ extern "C" {
 static bool s_has_changes = false;
 
 void tab_mods(float scale) {
+    mods_init();  // (the start screen's Settings: the game hasn't opened its RomFS yet, services/fs.c scans there)
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(10 * scale, 10 * scale));
 
     // Top action bar
