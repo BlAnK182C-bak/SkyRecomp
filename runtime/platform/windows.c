@@ -184,7 +184,8 @@ static void open_log_console(void) {
     if (!size || size > MAX_PATH - 45) return;
     wcscat(program, L"\\WindowsPowerShell\\v1.0\\powershell.exe");
     swprintf(command, sizeof command / sizeof *command, L"\"%ls\" %ls", program, wide);
-    STARTUPINFOW startup = {.cb = sizeof startup};
+    // minimized and without the focus: the game window keeps it, so a controller is enough to play (#106)
+    STARTUPINFOW startup = {.cb = sizeof startup, .dwFlags = STARTF_USESHOWWINDOW, .wShowWindow = SW_SHOWMINNOACTIVE};
     PROCESS_INFORMATION process;
     if (CreateProcessW(program, command, NULL, NULL, FALSE, CREATE_NEW_CONSOLE, NULL, NULL, &startup, &process)) {
         CloseHandle(process.hThread); CloseHandle(process.hProcess);
