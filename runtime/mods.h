@@ -14,6 +14,7 @@ typedef struct {
     char path[1024];       // Base mod folder (e.g. "mods/HD_Textures")
     char romfs_path[1024]; // Path to romfs root (e.g. "mods/HD_Textures/romfs")
     bool has_metadata;     // True if romfs_metadata.bin was found
+    bool has_exefs;        // True if it also has exefs/ code patches (not applied: the game code is precompiled)
     bool enabled;          // True if enabled
     int file_count;        // Count of files in the mod's romfs
 } ModEntry;

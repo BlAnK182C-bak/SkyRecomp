@@ -37,6 +37,7 @@ static int count_files_recursive(const char *dir) {
     while ((e = readdir(d))) {
         if (e->d_name[0] == '.') continue;
         if (!strcmp(e->d_name, "textures")) continue;
+        if (!strcmp(e->d_name, "exefs")) continue;  // (a loose mod's code patches: not RomFS files)
         if (!strcmp(e->d_name, "romfs_metadata.bin")) continue;
         char sub[1200];
         snprintf(sub, sizeof sub, "%s/%s", dir, e->d_name);
@@ -125,8 +126,23 @@ void mods_rescan(void) {
         strncpy(entry.name, e->d_name, sizeof entry.name - 1);
         strncpy(entry.path, mod_dir, sizeof entry.path - 1);
 
-        char romfs_dir[1024];
-        snprintf(romfs_dir, sizeof romfs_dir, "%s/romfs", mod_dir);
+        // Where its romfs/ is: in the mod folder (yuzu / Ryujinx), or in the Atmosphere SD card layout under
+        // [atmosphere/]contents/<title id>/ (FAT32 is case-insensitive, so both spellings of the id are around).
+        // Neither: the mod folder holds loose RomFS files.
+        static const char *const bases[] = {"", "/contents/01002DA013484000", "/contents/01002da013484000",
+                                            "/atmosphere/contents/01002DA013484000",
+                                            "/atmosphere/contents/01002da013484000"};
+        const int nbases = (int)(sizeof bases / sizeof *bases);
+        char romfs_dir[1024], exefs_dir[1024];
+        int b = 0;
+        for (; b < nbases; b++) {
+            snprintf(romfs_dir, sizeof romfs_dir, "%s%s/romfs", mod_dir, bases[b]);
+            if (dir_exists(romfs_dir)) break;
+        }
+        if (b == nbases) b = 0;
+        snprintf(romfs_dir, sizeof romfs_dir, "%s%s/romfs", mod_dir, bases[b]);
+        snprintf(exefs_dir, sizeof exefs_dir, "%s%s/exefs", mod_dir, bases[b]);
+        entry.has_exefs = dir_exists(exefs_dir);  // code patches: can't apply to the precompiled game (mods_ui.mm)
 
         char meta_path1[1024], meta_path2[1024];
         snprintf(meta_path1, sizeof meta_path1, "%s/romfs_metadata.bin", mod_dir);
@@ -183,9 +199,10 @@ void mods_rescan(void) {
 
     fprintf(stderr, "[mods] scanned %d mods in mods/ directory\n", s_mod_count);
     for (int i = 0; i < s_mod_count; i++) {
-        fprintf(stderr, "[mods] #%d: '%s' [%s] (%d files%s)\n",
+        fprintf(stderr, "[mods] #%d: '%s' [%s] (%d files%s%s) %s\n",
                 i + 1, s_mods[i].name, s_mods[i].enabled ? "ENABLED" : "DISABLED",
-                s_mods[i].file_count, s_mods[i].has_metadata ? ", romfs_metadata.bin" : "");
+                s_mods[i].file_count, s_mods[i].has_metadata ? ", romfs_metadata.bin" : "",
+                s_mods[i].has_exefs ? ", exefs not applied" : "", s_mods[i].romfs_path);
     }
 }
 

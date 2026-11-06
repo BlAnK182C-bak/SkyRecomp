@@ -62,7 +62,8 @@ void tab_mods(float scale) {
         ImGui::TextUnformatted("How to install mods:");
         ImGui::BulletText("Click 'Open Mods Folder' above.");
         ImGui::BulletText("Paste your mod folder inside (e.g. 'mods/MyMod/').");
-        ImGui::BulletText("The mod folder should contain a 'romfs/' directory and/or 'romfs_metadata.bin'.");
+        ImGui::BulletText("The mod folder should contain a 'romfs/' directory (or the Switch SD card layout,\n"
+                          "'atmosphere/contents/01002DA013484000/romfs/').");
         ImGui::BulletText("Click 'Rescan' to detect the mod, then restart the game to load it.");
         ImGui::PopStyleColor();
     } else {
@@ -121,6 +122,13 @@ void tab_mods(float scale) {
                 if (m->has_metadata) {
                     ImGui::SameLine();
                     ImGui::TextColored(ImVec4(0.35f, 0.8f, 0.95f, 1.0f), "[LayeredFS / romfs_metadata.bin]");
+                }
+                if (m->has_exefs) {
+                    ImGui::SameLine();
+                    ImGui::TextColored(ImVec4(0.95f, 0.6f, 0.3f, 1.0f), "[exefs not applied]");
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetTooltip("This mod also patches the game's code (exefs/). Sky Recomp runs the game as "
+                                          "precompiled code, so only its romfs/ files are used.");
                 }
 
                 ImGui::SameLine();
