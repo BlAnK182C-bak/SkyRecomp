@@ -84,17 +84,20 @@ void mods_open_folder(void) {
 }
 
 void mods_rescan(void) {
-    // Preserve current disabled states into s_disabled_mods_str
+    // Preserve current disabled states and order (the tab's ^ / v) into the strings the scan below applies
     if (s_mod_count > 0) {
-        char buf[2048] = {0};
-        int pos = 0;
+        char buf[2048] = {0}, order[2048] = {0};
+        int pos = 0, opos = 0;
         for (int i = 0; i < s_mod_count; i++) {
             if (!s_mods[i].enabled) {
                 int n = snprintf(buf + pos, sizeof buf - pos, "%s%s", pos > 0 ? "," : "", s_mods[i].name);
-                if (n > 0) pos += n;
+                if (n > 0 && pos + n < (int)sizeof buf) pos += n;
             }
+            int n = snprintf(order + opos, sizeof order - opos, "%s%s", opos > 0 ? "," : "", s_mods[i].name);
+            if (n > 0 && opos + n < (int)sizeof order) opos += n;
         }
         strncpy(s_disabled_mods_str, buf, sizeof s_disabled_mods_str - 1);
+        strncpy(s_mod_order_str, order, sizeof s_mod_order_str - 1);
     }
 
     s_mod_count = 0;
