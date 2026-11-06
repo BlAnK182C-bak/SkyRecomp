@@ -703,13 +703,17 @@ def _stamina_store(gen, a):
 
 
 # Infinite Beetle flight: main+0x279ce4 takes this frame's step off the Beetle's flight timer (u16 at +0xb92; it falls
-# at 0).
+# at 0). The timer can't just stop: the steering (main+0x27a308) is off while 900 (1200 upgraded) - timer - 5 <= 0, so a
+# timer held at its launch value never lets go of the Beetle (#109). It runs down as usual and stops at 151 instead:
+# at 150 and under the Beetle is running out (main+0x28014c), and that's the value the game drops it to on a hit.
 BEETLE_TIMER_SITE = 0x7000279ce4
 
 
 def _beetle_timer(gen, a):
     assert gen.word(a) == 0x4b090108, hex(gen.word(a))  # sub w8, w8, w9
-    return ('{ extern int rt_cheat_beetle(void); if (!rt_cheat_beetle()) c->x[8] = (uint32_t)c->x[8] - (uint32_t)c->x[9]; }'
+    return ('{ extern int rt_cheat_beetle(void); '
+            'if (!rt_cheat_beetle() || (uint32_t)c->x[8] >= 151u + (uint32_t)c->x[9]) '
+            'c->x[8] = (uint32_t)c->x[8] - (uint32_t)c->x[9]; }'
             f'  /* {a:#x}: sub w8, w8, w9 (Beetle flight timer: infinite Beetle flight) */')
 
 

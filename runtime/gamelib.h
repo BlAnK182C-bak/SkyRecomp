@@ -22,7 +22,7 @@
 // GAMELIB_ID (-D, from the Makefile): a hash of the generator and the headers the game code is compiled against. A
 // library built with another one is rebuilt, not loaded.
 #ifndef GAMELIB_ID
-#define GAMELIB_ID "931ec98964ca8a89"
+#define GAMELIB_ID "817ab1d563511d3c"
 #endif
 #define GAMELIB_ABI 2
 
